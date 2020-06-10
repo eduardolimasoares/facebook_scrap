@@ -1,4 +1,4 @@
-# JURUTI-BOT is a bot to scrap facebook comments do data analysis
+# versao 0.86
 from bs4 import BeautifulSoup
 from scrapy.utils.response import open_in_browser
 import scrapy
@@ -10,10 +10,10 @@ from datetime import datetime
 now = datetime.now()
 
 
-file_name = open('out_web_scrap.csv', 'w', encoding='utf-8')
+file_name = open('dataset.csv', 'w', encoding='utf-8')
 
 fieldnames = ['postagem', 'nome', 'comentario', 'curtidas', 'data', 'link']  # adding header to file
-writer = csv.DictWriter(file_name, fieldnames=fieldnames, dialect='excel', delimiter=',')
+writer = csv.DictWriter(file_name, fieldnames=fieldnames, dialect='excel', delimiter=';')
 writer.writeheader()
 
 
@@ -24,36 +24,20 @@ class DiarioOnlineSpider(scrapy.Spider):
         format='%(levelname)s: %(message)s',
         level=logging.INFO
     )
-    name = 'page_scrap'
-  # start_url i a url enterpoint
-    start_urls = ['']
+    name = 'diario_online'
+    # allowed_domains = ['mobile.facebook.com/login/']
+    start_urls = ['http://mobile.facebook.com/login/']
 
     def parse(self, response):
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('***********-----------------JURUTI-BOT-----------------*************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
-        # self.log('********************************************************************')
         return scrapy.FormRequest.from_response(
             response,
-            formdata={'email': email,
-                'pass': password},
+            formdata={'email': 'email.@email.com',
+                'pass': 'password'},
             callback=self.after_login
         )
 
     def after_login(self, response):
+
         soup = BeautifulSoup(response.body, 'lxml')
 
         all_htree = soup.find('h3')
@@ -63,18 +47,20 @@ class DiarioOnlineSpider(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.after_login)
         else:
 
-            self.log(response.url)
+            # self.log(response.url)
             yield scrapy.Request(
-                #enter the page to scrap
-                'https://mobile.facebook.com/',
+                'https://mobile.facebook.com/page',
                 callback=self.fim_linha
             )
 
     def fim_linha(self, response):
-        print('Entrnado em fim_linha')
+
 
         soup = BeautifulSoup(response.body, 'lxml')
 
+
+        # url = 'https://mobile.facebook.com/doldiarioonline/photos/a.292900254138425/2815898971838528/?type=3&refid=17&_ft_=mf_story_key.2815899781838447%3Atop_level_post_id.2815898971838528%3Atl_objid.2815898971838528%3Acontent_owner_id_new.291906430904474%3Athrowback_story_fbid.2815899781838447%3Apage_id.291906430904474%3Aphoto_id.2815898971838528%3Astory_location.4%3Astory_attachment_style.cover_photo%3Apage_insights.%7B%22291906430904474%22%3A%7B%22page_id%22%3A291906430904474%2C%22actor_id%22%3A291906430904474%2C%22dm%22%3A%7B%22isShare%22%3A0%2C%22originalPostOwnerID%22%3A0%7D%2C%22psn%22%3A%22EntCoverPhotoEdgeStory%22%2C%22post_context%22%3A%7B%22object_fbtype%22%3A22%2C%22publish_time%22%3A1581345640%2C%22story_name%22%3A%22EntCoverPhotoEdgeStory%22%2C%22story_fbid%22%3A%5B2815899781838447%5D%7D%2C%22role%22%3A1%2C%22sl%22%3A4%7D%7D%3Athid.291906430904474%3A306061129499414%3A62%3A0%3A1583049599%3A-7201742097596129302&__tn__=%2AW-R#footer_action_list%3E%20(referer:%20https://mobile.facebook.com/doldiarioonline?sectionLoadingID=m_timeline_loading_div_1583049599_0_36_timeline_unit%3A1%3A00000000001581347512%3A04611686018427387904%3A09223372036854775763%3A04611686018427387904&unit_cursor=timeline_unit%3A1%3A00000000001581347512%3A04611686018427387904%3A09223372036854775763%3A04611686018427387904&timeend=1583049599&timestart=0&tm=AQCw0Xm__7L2uAlH&refid=17'
+        # yield scrapy.Request(url=url, callback=self.parse_detail)
 
         all_links = soup.find_all('a')
         for link in all_links:
@@ -92,19 +78,26 @@ class DiarioOnlineSpider(scrapy.Spider):
 
 
 
+
+
+
     def parse_detail(self, response):
 
         soup = BeautifulSoup(response.body, 'lxml')
         campo_hora = soup.find_all('abbr')
         for campo in campo_hora:
             comment = campo.parent.parent
+            self.log('comment')
 
             tag_a = comment.find('a')
 
             if tag_a.get_text() != 'Curtir Página' and tag_a.get_text() != 'Salvar' and tag_a.get_text() != 'Fotos da capa':
                 self.log(tag_a.get_text())
                 link = response.url
-                postagem = soup.title.string
+                postagem_to_split = soup.title.string
+                postagem = postagem_to_split.replace('\n', ' ').replace('.', ' ').replace(',', ' ')
+
+
                 nome = tag_a.get_text()
                 comentario = comment.div.get_text()
                 informacoes = comment.div.next_sibling.next_sibling.get_text()
@@ -151,7 +144,7 @@ class DiarioOnlineSpider(scrapy.Spider):
 
             elif 'respostas' in mais_comentarios.get_text():
                 proxima_pagina_comentarios = 'https://mobile.facebook.com' + str(mais_comentarios.get('href'))
-                # yield scrapy.Request(url=proxima_pagina_comentarios, callback=self.parse_comments_answers)
+
                 request = scrapy.Request(url=proxima_pagina_comentarios,
                              callback=self.parse_comments_answers,
                              cb_kwargs=dict(postagem=postagem))
@@ -193,7 +186,6 @@ class DiarioOnlineSpider(scrapy.Spider):
                     curtidas = '0'
                     data_postagem = str(now.day) + '/' + str(now.month) + ' ' + str(now.hour) +':' + str(now.minute) + ' ' + str(informacoes.split(' · ')[3])
 
-                # print(postagem, nome, comentario, curtidas, data_postagem)
                 # yield {
                 #     'postagem': postagem,
                 #     'nome': nome,
@@ -224,6 +216,3 @@ class DiarioOnlineSpider(scrapy.Spider):
             
             else:
                 continue
-
-
-
